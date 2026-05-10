@@ -110,6 +110,28 @@
             </div>
 
         </div>
+
+        <!-- Exercice 2 : Historique des consultations -->
+        <div id="historique-section" class="mt-8 hidden">
+            <div class="bg-white rounded-xl shadow-md p-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">📋 Historique des consultations</h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="bg-gray-50 text-gray-600 text-left">
+                                <th class="py-2 px-3 rounded-tl-lg">#</th>
+                                <th class="py-2 px-3">Age / Sexe</th>
+                                <th class="py-2 px-3">Diagnostic</th>
+                                <th class="py-2 px-3 rounded-tr-lg">Probabilite</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historique-body">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
     </main>
 
     <!-- Footer -->
@@ -119,6 +141,20 @@
 
     <script>
         const API_URL = "http://localhost:8000";
+
+        // Exercice 2 : historique
+        const historique = [];
+
+        // Exercice 1 : icones par diagnostic
+        function icone(diagnostic) {
+            const icones = {
+                palu:   "🌡️",
+                grippe: "🤧",
+                typh:   "⚠️",
+                sain:   "✅"
+            };
+            return icones[diagnostic] || "🩺";
+        }
 
         async function diagnostiquer() {
             const patient = {
@@ -154,6 +190,9 @@
                 const resultat = await response.json();
                 afficherResultat(resultat);
 
+                // Exercice 2 : ajouter dans historique
+                ajouterHistorique(patient, resultat);
+
             } catch (error) {
                 afficherErreur("Erreur de connexion : " + error.message);
             }
@@ -182,7 +221,7 @@
                     <h2 class="text-xl font-bold text-gray-800 mb-4">Resultat</h2>
                     <div class="${c.bg} rounded-lg p-4 mb-4">
                         <p class="text-sm text-gray-600">Diagnostic :</p>
-                        <p class="text-2xl font-bold ${c.text} uppercase mt-1">${r.diagnostic}</p>
+                        <p class="text-2xl font-bold ${c.text} uppercase mt-1">${icone(r.diagnostic)} ${r.diagnostic}</p>
                     </div>
                     <div class="mb-4">
                         <div class="flex justify-between mb-1">
@@ -209,6 +248,37 @@
                     <p class="text-red-700 font-medium">${msg}</p>
                     <p class="text-red-500 text-sm mt-2">Verifiez votre connexion et reessayez.</p>
                 </div>`;
+        }
+
+        // Exercice 2 : historique des 5 dernières consultations
+        function ajouterHistorique(patient, resultat) {
+            historique.unshift({
+                age: patient.age,
+                sexe: patient.sexe,
+                diagnostic: resultat.diagnostic,
+                probabilite: Math.round(resultat.probabilite * 100)
+            });
+            if (historique.length > 5) historique.pop();
+
+            const section = document.getElementById("historique-section");
+            const tbody = document.getElementById("historique-body");
+            section.classList.remove("hidden");
+
+            const couleurs = {
+                palu:   "text-red-700 font-bold",
+                grippe: "text-orange-700 font-bold",
+                typh:   "text-yellow-700 font-bold",
+                sain:   "text-green-700 font-bold"
+            };
+
+            tbody.innerHTML = historique.map((h, i) => `
+                <tr class="border-t border-gray-100 hover:bg-gray-50">
+                    <td class="py-2 px-3 text-gray-400">${i + 1}</td>
+                    <td class="py-2 px-3">${h.age} ans / ${h.sexe}</td>
+                    <td class="py-2 px-3 ${couleurs[h.diagnostic] || ''}">${icone(h.diagnostic)} ${h.diagnostic}</td>
+                    <td class="py-2 px-3">${h.probabilite}%</td>
+                </tr>
+            `).join('');
         }
     </script>
 
