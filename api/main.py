@@ -134,7 +134,7 @@ Ne dis pas que tu es une IA. Sois rassurant mais honnete."""
         messages=[
             {
                 "role": "system",
-                "content": "Tu es un assistant medical senegalais. Tu expliques les diagnostics en français simple et accessible."
+                "content": "Tu es un assistant medical senegalais. Tu expliques les diagnostics en wolof simple et accessible. Si tu ne peux pas en wolof, utilise le français."
             },
             {
                 "role": "user",
