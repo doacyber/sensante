@@ -1,24 +1,15 @@
 #!/bin/bash
 echo "Downloading models..."
+mkdir -p models
 python3 -c "
-from huggingface_hub import HfApi
-api = HfApi(token='$GROQ_API_KEY')
-" 2>/dev/null || true
-
-# Telecharger les modeles si absents
-if [ ! -f "models/model.pkl" ]; then
-    pip install huggingface_hub -q
-    python3 -c "
-import urllib.request
-import os
-os.makedirs('models', exist_ok=True)
-base = 'https://huggingface.co/spaces/doaxy/sensante/resolve/main/models/'
-for f in ['model.pkl','encoder_sexe.pkl','encoder_region.pkl','feature_cols.pkl']:
-    print(f'Downloading {f}...')
-    urllib.request.urlretrieve(base+f, f'models/{f}')
-    print(f'{f} done!')
+from huggingface_hub import hf_hub_download
+import shutil
+files = ['model.pkl', 'encoder_sexe.pkl', 'encoder_region.pkl', 'feature_cols.pkl']
+for f in files:
+    path = hf_hub_download(repo_id='doaxy/sensante-models', filename=f, repo_type='model')
+    shutil.copy(path, f'models/{f}')
+    print(f'{f} OK!')
+print('Models ready!')
 "
-fi
-
 echo "Starting server..."
 uvicorn api.main:app --host 0.0.0.0 --port 8000
