@@ -30,3 +30,4 @@ typing_extensions==4.15.0
 uvicorn==0.46.0
 groq==1.2.0
 python-dotenv==1.2.2
+huggingface_hub==1.16.1
