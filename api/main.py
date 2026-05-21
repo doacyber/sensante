@@ -1,11 +1,17 @@
 # api/main.py
 # SenSante API - Assistant pre-diagnostic medical
-# Lab 3 - Integration de Modeles IA - ESP/UCAD
+# Lab 5 - Integration LLM via Groq
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import joblib
 import numpy as np
+import os
+from dotenv import load_dotenv
+from groq import Groq
+
+# Charger les variables d'environnement
+load_dotenv()
 
 # --- Schemas Pydantic ---
 class PatientInput(BaseModel):
@@ -24,11 +30,21 @@ class DiagnosticOutput(BaseModel):
     confiance: str
     message: str
 
+class ExplainInput(BaseModel):
+    diagnostic: str
+    probabilite: float
+    age: int
+    sexe: str
+    region: str
+
+class ExplainOutput(BaseModel):
+    explication: str
+
 # --- Application FastAPI ---
 app = FastAPI(
     title="SenSante API",
     description="Assistant pre-diagnostic medical pour le Senegal",
-    version="0.2.0"
+    version="0.3.0"
 )
 
 app.add_middleware(
@@ -39,13 +55,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- Chargement du modele (une seule fois) ---
+# --- Chargement du modele ---
 print("Chargement du modele...")
 model = joblib.load("models/model.pkl")
 le_sexe = joblib.load("models/encoder_sexe.pkl")
 le_region = joblib.load("models/encoder_region.pkl")
 feature_cols = joblib.load("models/feature_cols.pkl")
 print(f"Modele charge : {list(model.classes_)}")
+
+# --- Client Groq ---
+client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+print("Client Groq initialise.")
 
 # --- Routes ---
 @app.get("/health")
@@ -95,3 +115,43 @@ def predict(patient: PatientInput):
         confiance=confiance,
         message=messages.get(diagnostic, "Consultez un medecin.")
     )
+
+@app.post("/explain", response_model=ExplainOutput)
+def explain(data: ExplainInput):
+    prompt = f"""Un modele de machine learning a analyse un patient :
+- Age : {data.age} ans
+- Sexe : {data.sexe}
+- Region : {data.region}
+- Diagnostic predit : {data.diagnostic}
+- Probabilite : {int(data.probabilite * 100)}%
+
+Explique ce diagnostic en 2-3 phrases simples en français, 
+comme si tu parlais directement au patient. 
+Ne dis pas que tu es une IA. Sois rassurant mais honnete."""
+
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[
+            {
+                "role": "system",
+                "content": "Tu es un assistant medical senegalais. Tu expliques les diagnostics en français simple et accessible."
+            },
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ],
+        max_tokens=200
+    )
+    return ExplainOutput(explication=response.choices[0].message.content)
+
+# --- Servir le frontend (Lab 6) ---
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+
+@app.get("/")
+def serve_frontend():
+    """Servir la page d'accueil."""
+    return FileResponse("frontend/index.html")
+
+app.mount("/static", StaticFiles(directory="frontend"), name="static")

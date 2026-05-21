@@ -111,7 +111,7 @@
 
         </div>
 
-        <!-- Exercice 2 : Historique des consultations -->
+        <!-- Historique des consultations -->
         <div id="historique-section" class="mt-8 hidden">
             <div class="bg-white rounded-xl shadow-md p-6">
                 <h2 class="text-xl font-bold text-gray-800 mb-4">📋 Historique des consultations</h2>
@@ -136,22 +136,19 @@
 
     <!-- Footer -->
     <footer class="text-center text-gray-400 text-sm py-4">
-        SenSante v0.3 - ESP/UCAD - L2 GLSI 2026
+        SenSante v0.4 - ESP/UCAD - L2 GLSI 2026
     </footer>
 
     <script>
         const API_URL = "http://localhost:8000";
-
-        // Exercice 2 : historique
         const historique = [];
 
-        // Exercice 1 : icones par diagnostic
         function icone(diagnostic) {
             const icones = {
-                palu:   "🌡️",
-                grippe: "🤧",
-                typh:   "⚠️",
-                sain:   "✅"
+                paludisme: "🌡️",
+                grippe:    "🤧",
+                typhoide:  "⚠️",
+                sain:      "✅"
             };
             return icones[diagnostic] || "🩺";
         }
@@ -176,6 +173,7 @@
             afficherChargement();
 
             try {
+                // Etape 1 : appel /predict
                 const response = await fetch(API_URL + "/predict", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -188,10 +186,30 @@
                 }
 
                 const resultat = await response.json();
-                afficherResultat(resultat);
 
-                // Exercice 2 : ajouter dans historique
+                // Afficher le resultat sans explication d'abord
+                afficherResultat(resultat, null);
                 ajouterHistorique(patient, resultat);
+
+                // Etape 2 : appel /explain
+                afficherChargementExplication();
+
+                const explainResponse = await fetch(API_URL + "/explain", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        diagnostic: resultat.diagnostic,
+                        probabilite: resultat.probabilite,
+                        age: patient.age,
+                        sexe: patient.sexe,
+                        region: patient.region
+                    })
+                });
+
+                const explainData = await explainResponse.json();
+
+                // Afficher le resultat avec l'explication
+                afficherResultat(resultat, explainData.explication);
 
             } catch (error) {
                 afficherErreur("Erreur de connexion : " + error.message);
@@ -206,15 +224,35 @@
                 </div>`;
         }
 
-        function afficherResultat(r) {
+        function afficherChargementExplication() {
+            const zone = document.getElementById("zone-explication");
+            if (zone) {
+                zone.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div>
+                        <p class="text-sm text-purple-600">Le LLM analyse le diagnostic...</p>
+                    </div>`;
+            }
+        }
+
+        function afficherResultat(r, explication) {
             const couleurs = {
-                palu:  { bg: "bg-red-100",    text: "text-red-800",    bar: "bg-red-500",    badge: "bg-red-500" },
-                grippe:{ bg: "bg-orange-100", text: "text-orange-800", bar: "bg-orange-500", badge: "bg-orange-500" },
-                typh:  { bg: "bg-yellow-100", text: "text-yellow-800", bar: "bg-yellow-500", badge: "bg-yellow-500" },
-                sain:  { bg: "bg-green-100",  text: "text-green-800",  bar: "bg-green-500",  badge: "bg-green-500" }
+                paludisme: { bg: "bg-red-100",    text: "text-red-800",    bar: "bg-red-500",    badge: "bg-red-500" },
+                grippe:    { bg: "bg-orange-100", text: "text-orange-800", bar: "bg-orange-500", badge: "bg-orange-500" },
+                typhoide:  { bg: "bg-yellow-100", text: "text-yellow-800", bar: "bg-yellow-500", badge: "bg-yellow-500" },
+                sain:      { bg: "bg-green-100",  text: "text-green-800",  bar: "bg-green-500",  badge: "bg-green-500" }
             };
             const c = couleurs[r.diagnostic] || couleurs["sain"];
             const pct = Math.round(r.probabilite * 100);
+
+            const explainHTML = explication
+                ? `<div class="mt-4 bg-purple-50 border border-purple-200 rounded-lg p-4">
+                       <div class="flex items-center gap-2 mb-2">
+                           <span class="text-purple-600 font-bold text-sm">🤖 Explication IA</span>
+                       </div>
+                       <p class="text-sm text-gray-700 leading-relaxed">${explication}</p>
+                   </div>`
+                : `<div id="zone-explication" class="mt-4 bg-purple-50 border border-purple-200 rounded-lg p-4"></div>`;
 
             document.getElementById("result-section").innerHTML = `
                 <div class="bg-white rounded-xl shadow-md p-6">
@@ -239,6 +277,7 @@
                     <div class="bg-gray-50 rounded-lg p-3">
                         <p class="text-sm text-gray-700">${r.message}</p>
                     </div>
+                    ${explainHTML}
                 </div>`;
         }
 
@@ -250,7 +289,6 @@
                 </div>`;
         }
 
-        // Exercice 2 : historique des 5 dernières consultations
         function ajouterHistorique(patient, resultat) {
             historique.unshift({
                 age: patient.age,
@@ -265,10 +303,10 @@
             section.classList.remove("hidden");
 
             const couleurs = {
-                palu:   "text-red-700 font-bold",
-                grippe: "text-orange-700 font-bold",
-                typh:   "text-yellow-700 font-bold",
-                sain:   "text-green-700 font-bold"
+                paludisme: "text-red-700 font-bold",
+                grippe:    "text-orange-700 font-bold",
+                typhoide:  "text-yellow-700 font-bold",
+                sain:      "text-green-700 font-bold"
             };
 
             tbody.innerHTML = historique.map((h, i) => `
